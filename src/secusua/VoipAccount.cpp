@@ -7,37 +7,29 @@
 #include "VoipAccount.h"
 
 
-VoipAccount::VoipAccount(QObject * parent) : QObject(parent),
-                                            m_invokeManager(new InvokeManager(this))
-
-{
+VoipAccount::VoipAccount(QObject * parent) : QObject(parent) {
 }
 
-void VoipAccount::notifyIncomingCall() {
-    qDebug() << "VOIPSERVICE: Incoming call, displaying alert";
-    m_callDialog = new bb::platform::NotificationDialog(this);
-
-    m_callDialog->setTitle("Incoming call");
-    m_callDialog->setBody("Call from: HQ");
-
-    m_callDialog->appendButton(new bb::system::SystemUiButton("Answer"));
-    m_callDialog->appendButton(new bb::system::SystemUiButton("Hangup"));
-   bool success = QObject::connect(m_callDialog,
-         SIGNAL(finished(bb::platform::NotificationResult::Type)),
-         this,
-         SLOT(incomingCallSelection(bb::platform::NotificationResult::Type)));
-   if(success) {
-       m_callDialog->show();
-       m_callDialog->deleteLater();
-
-   } else
-   {
-       qDebug() << "VOIPSERVICE: Failed to connect phone call notification dialog";
-   }
-    Q_UNUSED(success);
+void VoipAccount::onFinished() {
+    InvokeTargetReply * reply = qobject_cast<bb::system::InvokeTargetReply*>(sender());
+    switch(reply->error()){
+        case bb::system::InvokeReplyError::NoTarget:
+            qDebug() << "VOIPSERVICE: Failed invoking VOIPAPP, error, NOTARGET";
+            break;
+        case bb::system::InvokeReplyError::BadRequest:
+            qDebug() << "VOIPSERVICE: Failed invoking VOIPAPP, error, BADREQUEST";
+            break;
+        case bb::system::InvokeReplyError::Internal:
+            qDebug() << "VOIPSERVICE: Failed invoking VOIPAPP, error, INTERNAL";
+            break;
+        default:
+            qDebug() << "VOIPSERVICE: Invoke VOIPAPP succeeded";
+            break;
+    }
+    reply->deleteLater();
 }
 
-
+/*
 void VoipAccount::incomingCallSelection(bb::platform::NotificationResult::Type result) {
     switch(result) {
         case bb::platform::NotificationResult::ButtonSelection:
@@ -45,6 +37,12 @@ void VoipAccount::incomingCallSelection(bb::platform::NotificationResult::Type r
             qDebug() << "VOIPSERVICE: Notification dialog button was selected, but which one?";
             if(m_callDialog->buttonSelection()->label().compare("Answer")) {
                 qDebug() << "VOIPSERVICE: Notification dialog button ANSWER selected";
+
+                bb::system::InvokeRequest request;
+                request.setTarget("com.secucom.SecuVoip");
+                request.setAction("bb.action.CALL");
+                m_invokeManager->invoke(request);
+
             }
             else if(m_callDialog->buttonSelection()->label().compare("Hangup")) {
                 qDebug() << "VOIPSERVICE: Notification dialog button HANGUP selected";
@@ -61,4 +59,4 @@ void VoipAccount::incomingCallSelection(bb::platform::NotificationResult::Type r
         default:
             qDebug() << "VOIPSERVICE: Something wrong happened with the notification's button selection";
     }
-}
+}*/

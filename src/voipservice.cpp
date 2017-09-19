@@ -30,47 +30,13 @@ using namespace pj;
 VoipService::VoipService(int &argc, char **argv) :
                                 Application(argc, argv),
                                 m_server(new QTcpServer(this)),
-                                m_invokeManager(new InvokeManager(this)),
                                 m_port(7777)
 {
     /*
     bool ok =  m_invokeManager->connect(m_invokeManager, SIGNAL(invoked(const bb::system::InvokeRequest&)),
             this, SLOT(handleInvoke(const bb::system::InvokeRequest&)));
     Q_ASSERT(ok);
-
-    NotificationDefaultApplicationSettings settings;
-    settings.setPreview(NotificationPriorityPolicy::Allow);
-    settings.apply();
-
-    m_notify->setTitle("VoipApp Service");
-    m_notify->setBody("VoipApp service requires attention");
-
-    bb::system::InvokeRequest request;
-    request.setTarget("com.example.VoipApp");
-    request.setAction("bb.action.START");
-    m_notify->setInvokeRequest(request);
-
-    onTimeout();
-
-
-    NotificationDefaultApplicationSettings settings;
-    settings.setPreview(NotificationPriorityPolicy::Allow);
-    settings.apply();
-
-    NotificationDialog * m_callDialog = new NotificationDialog(this);
-    m_callDialog->body("Incoming call from");
-    m_callDialog->soundUrl("asset:///sounds/secure-tone.mp3");
-    m_callDialog->setInvokeRequest(request);
-
-    bb::system::InvokeRequest request;
-    request.setTarget("com.example.VoipApp");
-    request.setAction("bb.action.START");
-    m_notify->setInvokeRequest(request);
-    m_callDialog->exec()();
-
-        */
-
-
+    */
     bool ok = connect(m_server, SIGNAL(newConnection()), this, SLOT(newConnection()));
     Q_ASSERT(ok);
     Q_UNUSED(ok);
@@ -92,15 +58,7 @@ void VoipService::listen()
     qDebug() << "VOIPSERVICE: listening for connections";
     m_server->listen(QHostAddress::LocalHost, m_port);
 }
-/*
-void VoipService::notifyIncomingCall() {
-    NotificationDialog * callDialog = new NotificationDialog(this);
-    callDialog->body("Incoming call from");
-    callDialog->soundUrl("asset:///sounds/secure-tone.mp3");
-    callDialog->show();
-    callDialog->setInvokeRequest(request);
-}
-*/
+
 void VoipService::newConnection()
 {
     m_socket = m_server->nextPendingConnection();
@@ -137,7 +95,6 @@ void VoipService::readyRead()
     } else {
         //Something else was received
     }
-
 }
 
 void VoipService::readyWrite(const int code)
@@ -163,7 +120,11 @@ void VoipService::registerSipUA() {
     std::string password = "serena";
     _agent->connectAccount(username, registerDomain, password);
     _agent->setStatusOnline();
+    bool ok = QObject::connect(_agent, SIGNAL(s_onIncomingCall()), this, SLOT(onIncomingCall()));
+    Q_ASSERT(ok);
+    Q_UNUSED(ok);
     readyWrite(200);
+
 }
 
 void VoipService::testCall() {
@@ -172,7 +133,8 @@ void VoipService::testCall() {
 
 void VoipService::handleInvoke(const bb::system::InvokeRequest & request)
 {
-    if (request.action().compare("com.example.VoipAppService.RESET") == 0) {
+    if (request.action().compare("com.secucom.SecuVoipService.START") == 0) {
+        qDebug() << "INFO: VoipService: Invoked with START command";
         triggerNotification();
     }
 }
@@ -206,4 +168,57 @@ bool VoipService::notify(QObject* receiver, QEvent* event)
     }
 
     return false;
+}
+
+
+void VoipService::onIncomingCall() {
+    /*
+        <invoke-target id="com.secucom.SecuVoipApp">
+        <invoke-target-name>SecuVoip Phone</invoke-target-name>
+        <icon><image>icon.png</image></icon>
+        <type>card.voiphone</type>
+        <filter>
+            <action>com.secucom.VOIPHONE</action>
+            <mime-type>phone/voip</mime-type>
+        </filter>
+     */
+    InvokeRequest request;
+    request.setTarget("com.secucom.SecuVoipApp");
+    request.setAction("com.secucom.VOIPHONE");
+    request.setMimeType("voip/phone");
+    request.setTargetTypes(InvokeTarget::Card);
+
+    InvokeManager invokeManager;
+    InvokeTargetReply * repl = invokeManager.invoke(request);
+    repl->setParent(this);
+    //const InvokeTargetReply *reply = m_invokeManager->invoke(request);
+    if (repl) {
+        // Ensure that processInvokeReply() is called when the invocation has finished
+        bool ok = QObject::connect(repl, SIGNAL(finished()), this, SLOT(onFinished()));
+        Q_ASSERT(ok);
+        Q_UNUSED(ok);
+        //m_invokeTargetReply = repl;
+    } else {
+        qDebug() << tr("Invoke Failed! Reply object is empty.");
+        return;
+    }
+}
+
+void VoipService::onFinished() {
+    InvokeTargetReply * reply = qobject_cast<bb::system::InvokeTargetReply*>(sender());
+    switch(reply->error()){
+        case bb::system::InvokeReplyError::NoTarget:
+            qDebug() << "VOIPSERVICE: Failed invoking VOIPAPP, error, NOTARGET";
+            break;
+        case bb::system::InvokeReplyError::BadRequest:
+            qDebug() << "VOIPSERVICE: Failed invoking VOIPAPP, error, BADREQUEST";
+            break;
+        case bb::system::InvokeReplyError::Internal:
+            qDebug() << "VOIPSERVICE: Failed invoking VOIPAPP, error, INTERNAL";
+            break;
+        default:
+            qDebug() << "VOIPSERVICE: Invoke VOIPAPP succeeded";
+            break;
+    }
+    reply->deleteLater();
 }

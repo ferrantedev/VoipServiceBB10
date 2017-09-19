@@ -31,6 +31,14 @@ void VoipAgent::connectAccount(const std::string &username, const std::string &r
     acfg.sipConfig.authCreds.push_back( cred );
     // Create the account
     _acc->create(acfg);
+
+    bool ok = QObject::connect(_acc, SIGNAL(s_onIncomingCall()), this, SLOT(onIncomingCall()));
+    Q_ASSERT(ok);
+    Q_UNUSED(ok);
+}
+
+void VoipAgent::onIncomingCall() {
+    emit s_onIncomingCall();
 }
 
 void VoipAgent::setStatusOnline() {
@@ -77,7 +85,6 @@ void VoipAgent::shutdown() {
     } else {
         qDebug() << "INFO: Cannot delete endpoint, Endpoint is not initialized";
     }
-
 }
 
 

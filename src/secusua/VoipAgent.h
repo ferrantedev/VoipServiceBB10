@@ -14,7 +14,7 @@
 
 using namespace pj;
 
-class VoipAgent : QObject
+class VoipAgent : public QObject
 {
     Q_OBJECT
 public:
@@ -23,6 +23,10 @@ public:
     void shutdown();
     void testCall();
     void setStatusOnline();
+signals:
+    void s_onIncomingCall();
+public slots:
+    void onIncomingCall();
 private:
     VoipAccount * _acc;
     Endpoint * _ep;

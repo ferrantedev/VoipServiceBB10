@@ -82,6 +82,8 @@ public Q_SLOTS:
 private slots:
     void handleInvoke(const bb::system::InvokeRequest &);
     void onTimeout();
+    void onIncomingCall();
+    void onFinished();
 
 private:
     void registerSipUA();

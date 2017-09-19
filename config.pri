@@ -134,6 +134,10 @@ simulator {
     }
 }
 
+config_pri_assets {
+    OTHER_FILES += $$quote($$BASEDIR/assets/sounds/secure-tone.mp3)
+}
+
 config_pri_source_group1 {
     SOURCES += \
         $$quote($$BASEDIR/src/main.cpp) \
@@ -148,7 +152,6 @@ config_pri_source_group1 {
         $$quote($$BASEDIR/src/secusua/presence.cpp) \
         $$quote($$BASEDIR/src/secusua/siptypes.cpp) \
         $$quote($$BASEDIR/src/secusua/types.cpp) \
-        $$quote($$BASEDIR/src/service.cpp) \
         $$quote($$BASEDIR/src/voipservice.cpp)
 
     HEADERS += \
@@ -167,7 +170,6 @@ config_pri_source_group1 {
         $$quote($$BASEDIR/src/secusua/siptypes.hpp) \
         $$quote($$BASEDIR/src/secusua/types.hpp) \
         $$quote($$BASEDIR/src/secusua/util.hpp) \
-        $$quote($$BASEDIR/src/service.hpp) \
         $$quote($$BASEDIR/src/voipservice.hpp)
 }
 
@@ -189,7 +191,10 @@ lupdate_inclusion {
         $$quote($$BASEDIR/../src/secusua/*.cxx) \
         $$quote($$BASEDIR/../assets/*.qml) \
         $$quote($$BASEDIR/../assets/*.js) \
-        $$quote($$BASEDIR/../assets/*.qs)
+        $$quote($$BASEDIR/../assets/*.qs) \
+        $$quote($$BASEDIR/../assets/sounds/*.qml) \
+        $$quote($$BASEDIR/../assets/sounds/*.js) \
+        $$quote($$BASEDIR/../assets/sounds/*.qs)
 
     HEADERS += \
         $$quote($$BASEDIR/../src/*.h) \

@@ -11,6 +11,7 @@
 #include <bb/system/InvokeManager>
 #include <bb/system/SystemUiButton>
 #include <bb/platform/NotificationResult>
+#include <bb/system/InvokeTargetReply>
 
 using namespace pj;
 using namespace bb::system;
@@ -98,7 +99,7 @@ public:
     virtual void onIncomingCall(OnIncomingCallParam &iprm)
     {
         qDebug() << "VOIPSERVICE: Incoming call";
-        notifyIncomingCall();
+        emit s_onIncomingCall();
         /*
         Call *call = new Call(*this, iprm.callId);
         // Just hangup for now
@@ -111,15 +112,15 @@ public:
         */
     }
 
-    void notifyIncomingCall();
-
+    public Q_SLOTS:
+        void onFinished();
+    signals:
+        void s_onIncomingCall();
     private slots:
-        void incomingCallSelection(bb::platform::NotificationResult::Type result);
+        //void incomingCallSelection(bb::platform::NotificationResult::Type result);
 
     private:
-        bb::platform::NotificationDialog * m_callDialog;
-        bb::system::InvokeManager * m_invokeManager;
-
+        //InvokeTargetReply * m_invokeTargetReply;
 };
 
 #endif // VOIPACCOUNT_H
