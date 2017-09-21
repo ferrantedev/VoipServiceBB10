@@ -17,10 +17,13 @@
 #include "voipservice.hpp"
 
 #include <bb/platform/Notification>
+#include <bb/platform/NotificationDialog>
 #include <bb/platform/NotificationDefaultApplicationSettings>
 #include <bb/system/InvokeManager>
 #include <bb/system/SystemUiButton>
+#include <bb/system/InvokeTarget>
 #include <QTimer>
+#include <QtCore/QUrl>
 #include <QDebug>
 
 using namespace bb::platform;
@@ -30,13 +33,22 @@ using namespace pj;
 VoipService::VoipService(int &argc, char **argv) :
                                 Application(argc, argv),
                                 m_server(new QTcpServer(this)),
-                                m_port(7777)
+                                m_port(7777),
+                                m_invokeManager(new InvokeManager(this)),
+                                m_notify(new Notification(this))
 {
-    /*
-    bool ok =  m_invokeManager->connect(m_invokeManager, SIGNAL(invoked(const bb::system::InvokeRequest&)),
+    m_invokeManager->connect(m_invokeManager, SIGNAL(invoked(const bb::system::InvokeRequest&)),
             this, SLOT(handleInvoke(const bb::system::InvokeRequest&)));
-    Q_ASSERT(ok);
-    */
+    /*
+     bool ok =  m_invokeManager->connect(m_invokeManager, SIGNAL(invoked(const bb::system::InvokeRequest&)),
+     this, SLOT(handleInvoke(const bb::system::InvokeRequest&)));
+     Q_ASSERT(ok);
+     */
+
+    NotificationDefaultApplicationSettings settings;
+    settings.setPreview(NotificationPriorityPolicy::Allow);
+    settings.apply();
+
     bool ok = connect(m_server, SIGNAL(newConnection()), this, SLOT(newConnection()));
     Q_ASSERT(ok);
     Q_UNUSED(ok);
@@ -81,20 +93,22 @@ void VoipService::readyRead()
     // TODO: Emit when finished reading in the data from the droid client socket
     //Q_EMIT dataRead(QString(ba));
 
-    int data = ba.toInt();
+    QString data = ba;
     qDebug() << "VOIPSERVICE: received data: " << data;
-
-    if( data == 100) {
-        // good
-        qDebug() << "VOIPSERVICE: Registering to SIP server";
-        registerSipUA();
-    } else if( data == 300) {
-        // good
-        qDebug() << "VOIPSERVICE: Performing voip test call";
-        testCall();
-    } else {
-        //Something else was received
+    if(data == "REGISTER") {
+            // good
+            qDebug() << "VOIPSERVICE: Registering to SIP server";
+            registerSipUA();
     }
+    else if (data == "CALL"){
+            // good
+            qDebug() << "VOIPSERVICE: Performing voip test call";
+            testCall();
+    }
+    else if (data == "STATUS"){
+            qDebug() << "VOIPSERVICE: STATUS queried";
+    }
+
 }
 
 void VoipService::readyWrite(const int code)
@@ -170,38 +184,64 @@ bool VoipService::notify(QObject* receiver, QEvent* event)
     return false;
 }
 
+void VoipService::onIncomingCall()
+{
+    qDebug() << "Invoking SecuVoip Ui";
+    bb::system::InvokeRequest request;
+    request.setTarget("com.secucom.SecuVoip");
+    request.setAction("bb.action.START");
+    NotificationDialog * m_callDialog = new NotificationDialog(this);
+    m_callDialog->setTitle("Incoming Call");
+    m_callDialog->setBody("Tap to answer");
+    //m_callDialog->setInvokeRequestAt(request);
+    m_callDialog->setRepeat(true);
+    m_callDialog->setSoundUrl(QUrl("shared/documents/rsound.m4a"));
 
-void VoipService::onIncomingCall() {
     /*
-        <invoke-target id="com.secucom.SecuVoipApp">
-        <invoke-target-name>SecuVoip Phone</invoke-target-name>
-        <icon><image>icon.png</image></icon>
-        <type>card.voiphone</type>
-        <filter>
-            <action>com.secucom.VOIPHONE</action>
-            <mime-type>phone/voip</mime-type>
-        </filter>
+     m_notify->setTitle("AN alert");
+     m_notify->setBody("Open Secuvoip");
+     m_notify->setInvokeRequest(request);
      */
-    InvokeRequest request;
-    request.setTarget("com.secucom.SecuVoipApp");
-    request.setAction("com.secucom.VOIPHONE");
-    request.setMimeType("voip/phone");
-    request.setTargetTypes(InvokeTarget::Card);
+    Notification::clearEffectsForAll();
+    Notification::deleteAllFromInbox();
 
-    InvokeManager invokeManager;
-    InvokeTargetReply * repl = invokeManager.invoke(request);
-    repl->setParent(this);
-    //const InvokeTargetReply *reply = m_invokeManager->invoke(request);
-    if (repl) {
-        // Ensure that processInvokeReply() is called when the invocation has finished
-        bool ok = QObject::connect(repl, SIGNAL(finished()), this, SLOT(onFinished()));
-        Q_ASSERT(ok);
-        Q_UNUSED(ok);
-        //m_invokeTargetReply = repl;
+    m_callDialog->appendButton(new bb::system::SystemUiButton("Answer"));
+    m_callDialog->appendButton(new bb::system::SystemUiButton("Hangup"));
+    bool success = QObject::connect(m_callDialog, SIGNAL(finished(bb::platform::NotificationResult::Type)),
+                                    this, SLOT(onSelected(bb::platform::NotificationResult::Type)));
+    m_callDialog->setInvokeRequestAt(0, request);
+    if (success) {
+        m_callDialog->show();
     } else {
-        qDebug() << tr("Invoke Failed! Reply object is empty.");
-        return;
+
     }
+}
+void VoipService::onSelected(bb::platform::NotificationResult::Type sel) {
+    qDebug() << "VOIPSERVICE: Notification button selected";
+    NotificationDialog * dialog = qobject_cast<bb::platform::NotificationDialog*>(sender());
+    switch(sel) {
+            case bb::platform::NotificationResult::ButtonSelection:
+                //Button was selected now what?;
+                if(dialog->buttonSelection()->label() == "Answer") {
+                    qDebug() << "VOIPSERVICE: Notification dialog button ANSWER selected";
+                    _agent->answerCall();
+                }
+                else if(dialog->buttonSelection()->label() == "Hangup") {
+                    qDebug() << "VOIPSERVICE: Notification dialog button HANGUP selected";
+                } else {
+                    qDebug() << "VOIPSERVICE: Notification dialog button UKNOWN selected";
+                }
+                break;
+            case bb::platform::NotificationResult::None:
+                qDebug() << "VOIPSERVICE: Notification's selection SKIPPED button selcted";
+                break;
+            case bb::platform::NotificationResult::Error:
+                qDebug() << "VOIPSERVICE: Something wrong happened with the notification's button selection";
+                break;
+            default:
+                qDebug() << "VOIPSERVICE: Something wrong happened with the notification's button selection";
+        }
+
 }
 
 void VoipService::onFinished() {

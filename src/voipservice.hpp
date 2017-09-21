@@ -22,6 +22,9 @@
 #include "secusua/VoipAgent.h"
 #include <QtNetwork/QTcpSocket>
 #include <QtNetwork/QTcpServer>
+#include <bb/system/InvokeManager>
+#include <bb/platform/Notification>
+#include <bb/platform/NotificationResult>
 
 
 namespace bb {
@@ -37,6 +40,7 @@ namespace bb {
 
 using namespace pj;
 using namespace bb;
+using namespace bb::system;
 
 class VoipService : public Application
 {
@@ -84,6 +88,7 @@ private slots:
     void onTimeout();
     void onIncomingCall();
     void onFinished();
+    void onSelected(bb::platform::NotificationResult::Type);
 
 private:
     void registerSipUA();
@@ -92,6 +97,7 @@ private:
 
     bb::platform::NotificationDialog * m_callDialog;
     bb::system::InvokeManager * m_invokeManager;
+    bb::platform::Notification * m_notify;
     VoipAgent * _agent;
 
     // The port used for the server socket

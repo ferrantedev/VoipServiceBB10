@@ -41,6 +41,10 @@ void VoipAgent::onIncomingCall() {
     emit s_onIncomingCall();
 }
 
+void VoipAgent::answerCall() {
+    _acc->answerCall();
+}
+
 void VoipAgent::setStatusOnline() {
     try {
         PresenceStatus ps;

@@ -23,6 +23,7 @@ public:
     void shutdown();
     void testCall();
     void setStatusOnline();
+    void answerCall();
 signals:
     void s_onIncomingCall();
 public slots:

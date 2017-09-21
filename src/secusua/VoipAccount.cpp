@@ -29,6 +29,13 @@ void VoipAccount::onFinished() {
     reply->deleteLater();
 }
 
+void VoipAccount::answerCall() {
+    qDebug() << "VOIPSERVICE: Answering call";
+    CallOpParam op;
+    op.statusCode = PJSIP_SC_OK;
+    _currentCall->answer(PJSIP_SC_OK);
+}
+
 /*
 void VoipAccount::incomingCallSelection(bb::platform::NotificationResult::Type result) {
     switch(result) {
