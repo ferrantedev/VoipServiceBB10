@@ -100,6 +100,10 @@ class VoipAccount : public QObject, public Account {
         {
             _currentCall = new VoipCall(*this, iprm.callId);
             qDebug() << "VOIPSERVICE: Incoming call";
+            CallOpParam op;
+            op.statusCode = PJSIP_SC_RINGING;
+            _currentCall->answer(op);
+
             emit s_onIncomingCall();
             /*
             Call *call = new Call(*this, iprm.callId);
@@ -113,6 +117,7 @@ class VoipAccount : public QObject, public Account {
             */
         }
         void answerCall();
+        void hangupCall();
     public Q_SLOTS:
         void onFinished();
     signals:

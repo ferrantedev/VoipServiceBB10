@@ -31,9 +31,20 @@ void VoipAccount::onFinished() {
 
 void VoipAccount::answerCall() {
     qDebug() << "VOIPSERVICE: Answering call";
+    try {
     CallOpParam op;
     op.statusCode = PJSIP_SC_OK;
-    _currentCall->answer(PJSIP_SC_OK);
+    _currentCall->answer(op);
+    } catch(Error& err) {
+        qDebug() << QString::fromStdString(err.info());
+    }
+}
+
+void VoipAccount::hangupCall() {
+    qDebug() << "VOIPSERVICE: Hanging up call";
+    CallOpParam op;
+    op.statusCode = PJSIP_SC_OK;
+    _currentCall->hangup(op);
 }
 
 /*

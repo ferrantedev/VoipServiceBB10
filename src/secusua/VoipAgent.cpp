@@ -45,6 +45,10 @@ void VoipAgent::answerCall() {
     _acc->answerCall();
 }
 
+void VoipAgent::hangupCall() {
+    _acc->hangupCall();
+}
+
 void VoipAgent::setStatusOnline() {
     try {
         PresenceStatus ps;

@@ -75,7 +75,7 @@ public Q_SLOTS:
      * This method is used in order to write data out
      * to the socket.
      */
-    void readyWrite(const int code);
+    void readyWrite();
 
     /**
      * This method is invoked when the socket connection disconnects.
@@ -94,7 +94,7 @@ private:
     void registerSipUA();
     void testCall();
     void triggerNotification();
-
+    QString buildResponse();
     bb::platform::NotificationDialog * m_callDialog;
     bb::system::InvokeManager * m_invokeManager;
     bb::platform::Notification * m_notify;
@@ -106,6 +106,8 @@ private:
     QTcpServer *m_server;
     //The socket that is created when a connection with the client is made
     QTcpSocket *m_socket;
+    QString m_status;
+    QString m_usernameCalling;
 };
 
 #endif /* SERVICE_H_ */

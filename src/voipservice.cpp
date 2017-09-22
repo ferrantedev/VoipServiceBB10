@@ -37,6 +37,8 @@ VoipService::VoipService(int &argc, char **argv) :
                                 m_invokeManager(new InvokeManager(this)),
                                 m_notify(new Notification(this))
 {
+    m_status = QString::fromUtf8("OFFLINE");
+    m_usernameCalling = QString::fromUtf8("NONE");
     m_invokeManager->connect(m_invokeManager, SIGNAL(invoked(const bb::system::InvokeRequest&)),
             this, SLOT(handleInvoke(const bb::system::InvokeRequest&)));
     /*
@@ -65,9 +67,19 @@ VoipService::~VoipService()
     m_server->deleteLater();
 }
 
+QString VoipService::buildResponse() {
+    QString res = "STATUS: ";
+    res.append(m_status);
+    res.append(",");
+    res.append(" INCOMINGCALL: ");
+    res.append("false");
+    return res;
+}
+
+
 void VoipService::listen()
 {
-    qDebug() << "VOIPSERVICE: listening for connections";
+    qDebug() << "SERVICE: listening for connections";
     m_server->listen(QHostAddress::LocalHost, m_port);
 }
 
@@ -75,7 +87,7 @@ void VoipService::newConnection()
 {
     m_socket = m_server->nextPendingConnection();
     if (m_socket->state() == QTcpSocket::ConnectedState) {
-        qDebug() << "VOIPSERVICE: new connection established.";
+        qDebug() << "SERVICE: new connection established.";
     }
     // Make connections for reveiving disconnect and read ready signals for the
     // new connection socket
@@ -88,40 +100,37 @@ void VoipService::newConnection()
 
 void VoipService::readyRead()
 {
-    qDebug() << "VOIPSERVICE: server data received";
     QByteArray ba = m_socket->read(20);
-    // TODO: Emit when finished reading in the data from the droid client socket
-    //Q_EMIT dataRead(QString(ba));
-
     QString data = ba;
-    qDebug() << "VOIPSERVICE: received data: " << data;
+    qDebug() << "SERVICE: received data: " << data;
     if(data == "REGISTER") {
             // good
-            qDebug() << "VOIPSERVICE: Registering to SIP server";
+            qDebug() << "SERVICE: Registering to SIP server";
             registerSipUA();
     }
     else if (data == "CALL"){
             // good
-            qDebug() << "VOIPSERVICE: Performing voip test call";
+            qDebug() << "SERVICE: Performing test call";
             testCall();
     }
     else if (data == "STATUS"){
-            qDebug() << "VOIPSERVICE: STATUS queried";
+            qDebug() << "SERVICE: STATUS queried";
+            readyWrite();
     }
-
 }
 
-void VoipService::readyWrite(const int code)
+void VoipService::readyWrite()
 {
+    QString res = buildResponse();
     if (m_socket && m_socket->state() == QTcpSocket::ConnectedState) {
-        m_socket->write(QByteArray::number(code));
+        m_socket->write(res.toUtf8());
         m_socket->flush();
     }
 }
 
 void VoipService::disconnected()
 {
-    qDebug() << "VOIPSERVICE: Socket disconnected";
+    qDebug() << "SERVICE: Socket disconnected";
     disconnect(m_socket, SIGNAL(disconnected()), this, SLOT(disconnected()));
     disconnect(m_socket, SIGNAL(readyRead()), this, SLOT(readyRead()));
     m_socket->close();
@@ -137,7 +146,8 @@ void VoipService::registerSipUA() {
     bool ok = QObject::connect(_agent, SIGNAL(s_onIncomingCall()), this, SLOT(onIncomingCall()));
     Q_ASSERT(ok);
     Q_UNUSED(ok);
-    readyWrite(200);
+    m_status = "ONLINE";
+    readyWrite();
 
 }
 
@@ -148,7 +158,7 @@ void VoipService::testCall() {
 void VoipService::handleInvoke(const bb::system::InvokeRequest & request)
 {
     if (request.action().compare("com.secucom.SecuVoipService.START") == 0) {
-        qDebug() << "INFO: VoipService: Invoked with START command";
+        qDebug() << "SERVICE: Service invoked with START command";
         triggerNotification();
     }
 }
@@ -186,7 +196,7 @@ bool VoipService::notify(QObject* receiver, QEvent* event)
 
 void VoipService::onIncomingCall()
 {
-    qDebug() << "Invoking SecuVoip Ui";
+    qDebug() << "Invoking APP Ui";
     bb::system::InvokeRequest request;
     request.setTarget("com.secucom.SecuVoip");
     request.setAction("bb.action.START");
@@ -197,11 +207,6 @@ void VoipService::onIncomingCall()
     m_callDialog->setRepeat(true);
     m_callDialog->setSoundUrl(QUrl("shared/documents/rsound.m4a"));
 
-    /*
-     m_notify->setTitle("AN alert");
-     m_notify->setBody("Open Secuvoip");
-     m_notify->setInvokeRequest(request);
-     */
     Notification::clearEffectsForAll();
     Notification::deleteAllFromInbox();
 
@@ -217,29 +222,29 @@ void VoipService::onIncomingCall()
     }
 }
 void VoipService::onSelected(bb::platform::NotificationResult::Type sel) {
-    qDebug() << "VOIPSERVICE: Notification button selected";
+    qDebug() << "SERVICE: Notification button selected";
     NotificationDialog * dialog = qobject_cast<bb::platform::NotificationDialog*>(sender());
     switch(sel) {
             case bb::platform::NotificationResult::ButtonSelection:
-                //Button was selected now what?;
                 if(dialog->buttonSelection()->label() == "Answer") {
-                    qDebug() << "VOIPSERVICE: Notification dialog button ANSWER selected";
+                    qDebug() << "SERVICE: Notification dialog button ANSWER selected";
                     _agent->answerCall();
                 }
                 else if(dialog->buttonSelection()->label() == "Hangup") {
-                    qDebug() << "VOIPSERVICE: Notification dialog button HANGUP selected";
+                    qDebug() << "SERVICE: Notification dialog button HANGUP selected";
+                    _agent->hangupCall();
                 } else {
-                    qDebug() << "VOIPSERVICE: Notification dialog button UKNOWN selected";
+                    qDebug() << "SERVICE: Notification dialog button UKNOWN selected";
                 }
                 break;
             case bb::platform::NotificationResult::None:
-                qDebug() << "VOIPSERVICE: Notification's selection SKIPPED button selcted";
+                qDebug() << "SERVICE: Notification's selection SKIPPED button selcted";
                 break;
             case bb::platform::NotificationResult::Error:
-                qDebug() << "VOIPSERVICE: Something wrong happened with the notification's button selection";
+                qDebug() << "SERVICE: Something wrong happened with the notification's button selection";
                 break;
             default:
-                qDebug() << "VOIPSERVICE: Something wrong happened with the notification's button selection";
+                qDebug() << "SERVICE: Something wrong happened with the notification's button selection";
         }
 
 }
@@ -248,16 +253,16 @@ void VoipService::onFinished() {
     InvokeTargetReply * reply = qobject_cast<bb::system::InvokeTargetReply*>(sender());
     switch(reply->error()){
         case bb::system::InvokeReplyError::NoTarget:
-            qDebug() << "VOIPSERVICE: Failed invoking VOIPAPP, error, NOTARGET";
+            qDebug() << "SERVICE: Failed invoking APP, error, NOTARGET";
             break;
         case bb::system::InvokeReplyError::BadRequest:
-            qDebug() << "VOIPSERVICE: Failed invoking VOIPAPP, error, BADREQUEST";
+            qDebug() << "SERVICE: Failed invoking APP, error, BADREQUEST";
             break;
         case bb::system::InvokeReplyError::Internal:
-            qDebug() << "VOIPSERVICE: Failed invoking VOIPAPP, error, INTERNAL";
+            qDebug() << "SERVICE: Failed invoking APP, error, INTERNAL";
             break;
         default:
-            qDebug() << "VOIPSERVICE: Invoke VOIPAPP succeeded";
+            qDebug() << "SERVICE: Invoke APP succeeded";
             break;
     }
     reply->deleteLater();

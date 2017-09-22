@@ -24,6 +24,7 @@ public:
     void testCall();
     void setStatusOnline();
     void answerCall();
+    void hangupCall();
 signals:
     void s_onIncomingCall();
 public slots:
