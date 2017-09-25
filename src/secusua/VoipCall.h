@@ -20,7 +20,7 @@ public:
 
     // Notification when call's state has changed.
     virtual void onCallState(OnCallStateParam &prm) {
-        qDebug() << "Call state changed";
+        qDebug() << "SERVICE: Call state changed";
             CallInfo ci = getInfo();
             if (ci.state == PJSIP_INV_STATE_DISCONNECTED) {
                 /* Delete the call */

@@ -38,6 +38,8 @@ VoipService::VoipService(int &argc, char **argv) :
                                 m_notify(new Notification(this))
 {
     m_status = QString::fromUtf8("OFFLINE");
+    m_incomingCall = QString::fromUtf8("false");
+    m_ongoingCall = QString::fromUtf8("false");
     m_usernameCalling = QString::fromUtf8("NONE");
     m_invokeManager->connect(m_invokeManager, SIGNAL(invoked(const bb::system::InvokeRequest&)),
             this, SLOT(handleInvoke(const bb::system::InvokeRequest&)));
@@ -72,7 +74,10 @@ QString VoipService::buildResponse() {
     res.append(m_status);
     res.append(",");
     res.append(" INCOMINGCALL: ");
-    res.append("false");
+    res.append(m_incomingCall);
+    res.append(",");
+    res.append( "ONGOINGCALL: ");
+    res.append(m_ongoingCall);
     return res;
 }
 
@@ -103,6 +108,7 @@ void VoipService::readyRead()
     QByteArray ba = m_socket->read(20);
     QString data = ba;
     qDebug() << "SERVICE: received data: " << data;
+
     if(data == "REGISTER") {
             // good
             qDebug() << "SERVICE: Registering to SIP server";
@@ -115,6 +121,13 @@ void VoipService::readyRead()
     }
     else if (data == "STATUS"){
             qDebug() << "SERVICE: STATUS queried";
+            executeCallCommand();
+            readyWrite();
+    }
+    else if (data == "HANGUP"){
+            qDebug() << "SERVICE: HANGUP signal received";
+            m_ongoingCall = "false";
+            _agent->hangupCall();
             readyWrite();
     }
 }
@@ -221,6 +234,7 @@ void VoipService::onIncomingCall()
 
     }
 }
+
 void VoipService::onSelected(bb::platform::NotificationResult::Type sel) {
     qDebug() << "SERVICE: Notification button selected";
     NotificationDialog * dialog = qobject_cast<bb::platform::NotificationDialog*>(sender());
@@ -228,11 +242,11 @@ void VoipService::onSelected(bb::platform::NotificationResult::Type sel) {
             case bb::platform::NotificationResult::ButtonSelection:
                 if(dialog->buttonSelection()->label() == "Answer") {
                     qDebug() << "SERVICE: Notification dialog button ANSWER selected";
-                    _agent->answerCall();
+                    m_callCommand = "ANSWER";
                 }
                 else if(dialog->buttonSelection()->label() == "Hangup") {
                     qDebug() << "SERVICE: Notification dialog button HANGUP selected";
-                    _agent->hangupCall();
+                    m_callCommand = "HANGUP";
                 } else {
                     qDebug() << "SERVICE: Notification dialog button UKNOWN selected";
                 }
@@ -246,7 +260,6 @@ void VoipService::onSelected(bb::platform::NotificationResult::Type sel) {
             default:
                 qDebug() << "SERVICE: Something wrong happened with the notification's button selection";
         }
-
 }
 
 void VoipService::onFinished() {
@@ -266,4 +279,22 @@ void VoipService::onFinished() {
             break;
     }
     reply->deleteLater();
+}
+
+void VoipService::executeCallCommand(){
+    if(m_callCommand == "ANSWER") {
+        qDebug() << "SERVICE: Executing ANSWER command";
+        _agent->answerCall();
+        m_ongoingCall = "true";
+        m_incomingCall = "false";
+        readyWrite();
+    } else if ( m_callCommand == "HANGUP") {
+        qDebug() << "SERVICE: Executing HANGUP command";
+        _agent->hangupCall();
+        m_ongoingCall = "false";
+        m_incomingCall = "false";
+        readyWrite();
+    } else {
+        qDebug() << "SERVICE: Unrecognized call command, ignoring";
+    }
 }

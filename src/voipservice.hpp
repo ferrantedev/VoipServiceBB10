@@ -91,6 +91,7 @@ private slots:
     void onSelected(bb::platform::NotificationResult::Type);
 
 private:
+    void executeCallCommand();
     void registerSipUA();
     void testCall();
     void triggerNotification();
@@ -108,6 +109,9 @@ private:
     QTcpSocket *m_socket;
     QString m_status;
     QString m_usernameCalling;
+    QString m_incomingCall;
+    QString m_ongoingCall;
+    QString m_callCommand;
 };
 
 #endif /* SERVICE_H_ */
